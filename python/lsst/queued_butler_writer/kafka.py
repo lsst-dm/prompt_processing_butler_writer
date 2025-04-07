@@ -9,8 +9,8 @@ _LOG = logging.getLogger(__name__)
 
 class KafkaReader:
     def __init__(self, cluster: str, topic: str) -> None:
-        self._consumer = Consumer({"bootstrap.servers": cluster})
-        self._consumer.subscribe(topic)
+        self._consumer = Consumer({"bootstrap.servers": cluster, "group.id": "butler-writer"})
+        self._consumer.subscribe([topic])
 
     def read_message(self) -> str:
         poll_timeout = 30  # seconds

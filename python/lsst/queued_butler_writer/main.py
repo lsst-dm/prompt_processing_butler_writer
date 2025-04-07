@@ -21,10 +21,15 @@ _LOG = logging.getLogger(__name__)
 
 
 def main():
-    config = ServiceConfig.model_validate_strings(os.environ)
+    logging.basicConfig()
+    logging.getLogger().setLevel("INFO")
+    config = ServiceConfig.model_validate_strings(dict(os.environ))
+    _LOG.info("Connecting to Butler...")
     butler = Butler(config.BUTLER_REPOSITORY)
+    _LOG.info("Connecting to Kafka...")
     reader = KafkaReader(config.KAFKA_CLUSTER, config.KAFKA_TOPIC)
 
+    _LOG.info("Waiting for messages.")
     while True:
         message = reader.read_message()
         event = PromptProcessingOutputEvent.model_validate_json(message)
