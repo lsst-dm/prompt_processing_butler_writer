@@ -15,6 +15,11 @@ class ServiceConfig(pydantic.BaseModel):
     BUTLER_REPOSITORY: str
     KAFKA_CLUSTER: str
     KAFKA_TOPIC: str
+    FILE_STAGING_ROOT_PATH: str
+    """Path to the directory where files will be stored prior to ingestion into
+    the Butler, as a URI string in the format understood by
+    `lsst.resources.ResourcePath`.
+    """
 
 
 _LOG = logging.getLogger(__name__)
@@ -36,7 +41,7 @@ def main():
         _LOG.info(
             f"Received message {event.type} with {len(event.datasets)} and {len(event.dimension_records)} dimension records"
         )
-        handle_prompt_processing_completion(butler, event)
+        handle_prompt_processing_completion(butler, event, config.FILE_STAGING_ROOT_PATH)
 
 
 if __name__ == "__main__":

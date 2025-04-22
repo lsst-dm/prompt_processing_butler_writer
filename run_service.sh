@@ -3,6 +3,7 @@
 export KAFKA_CLUSTER=localhost:9092
 export KAFKA_TOPIC=rubin-prompt-processing-butler-output
 export BUTLER_REPOSITORY=$(dirname "$0")/testrepo
+export FILE_STAGING_ROOT_PATH=$(dirname "$0")/staging-directory
 
 docker compose up --detach --wait --remove-orphans
 echo Docker startup complete.
