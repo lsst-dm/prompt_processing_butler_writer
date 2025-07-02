@@ -41,7 +41,7 @@ def main():
         _LOG.info(
             f"Received message {event.type} with {len(event.datasets)} and {len(event.dimension_records)} dimension records"
         )
-        handle_prompt_processing_completion(butler, event, config.FILE_STAGING_ROOT_PATH)
+        handle_prompt_processing_completion(butler, [event], config.FILE_STAGING_ROOT_PATH)
 
 
 if __name__ == "__main__":

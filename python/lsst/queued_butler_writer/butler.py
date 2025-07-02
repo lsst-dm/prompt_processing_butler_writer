@@ -4,9 +4,6 @@ from lsst.daf.butler import (
     DimensionRecord,
     DimensionRecordSet,
     FileDataset,
-    SerializedDatasetType,
-    SerializedDimensionRecord,
-    SerializedFileDataset,
 )
 from lsst.resources import ResourcePath
 
@@ -14,20 +11,30 @@ from .messages import PromptProcessingOutputEvent
 
 
 def handle_prompt_processing_completion(
-    butler: Butler, event: PromptProcessingOutputEvent, file_staging_root_path: str
+    butler: Butler, events: list[PromptProcessingOutputEvent], file_staging_root_path: str
 ) -> None:
-    _insert_dimension_records(butler, event.dimension_records)
+    dimension_records = _deserialize_dimension_records(butler, events)
+    _insert_dimension_records(butler, dimension_records)
 
-    root = ResourcePath(file_staging_root_path)
-    subdirectory = _safely_join_path(root, event.root_directory, is_directory=True)
-    _insert_datasets(butler, event.datasets, event.dataset_types, subdirectory)
+    _insert_datasets(butler, events, file_staging_root_path)
 
 
-def _insert_dimension_records(butler: Butler, serialized_records: list[SerializedDimensionRecord]) -> None:
-    deserialized_records = [
-        DimensionRecord.from_simple(record, universe=butler.dimensions) for record in serialized_records
-    ]
-    grouped_records = _group_and_deduplicate_dimension_records(deserialized_records)
+def _deserialize_dimension_records(
+    butler: Butler, events: list[PromptProcessingOutputEvent]
+) -> list[DimensionRecord]:
+    output = []
+    for event in events:
+        deserialized_records = [
+            DimensionRecord.from_simple(record, universe=butler.dimensions)
+            for record in event.dimension_records
+        ]
+        output.extend(deserialized_records)
+
+    return output
+
+
+def _insert_dimension_records(butler: Butler, records: list[DimensionRecord]) -> None:
+    grouped_records = _group_and_deduplicate_dimension_records(records)
     for dimension, records in grouped_records.items():
         butler.registry.insertDimensionData(dimension, *records, skip_existing=True)
 
@@ -44,25 +51,36 @@ def _group_and_deduplicate_dimension_records(records: list[DimensionRecord]) -> 
     return sets
 
 
-def _insert_datasets(
-    butler: Butler,
-    serialized_datasets: list[SerializedFileDataset],
-    serialized_types: list[SerializedDatasetType],
-    root_path: ResourcePath,
-) -> None:
+def _deserialize_datasets(
+    butler: Butler, event: PromptProcessingOutputEvent, root_path: ResourcePath
+) -> list[FileDataset]:
     dataset_types = {
-        dt.name: DatasetType.from_simple(dt, universe=butler.dimensions) for dt in serialized_types
+        dt.name: DatasetType.from_simple(dt, universe=butler.dimensions) for dt in event.dataset_types
     }
 
     def get_dataset_type(name: str) -> DatasetType:
         return dataset_types[name]
 
+    subdirectory = _safely_join_path(root_path, event.root_directory, is_directory=True)
+
     datasets = [
         FileDataset.from_simple(ds, universe=butler.dimensions, dataset_type_loader=get_dataset_type)
-        for ds in serialized_datasets
+        for ds in event.datasets
     ]
     for dataset in datasets:
-        dataset.path = _safely_join_path(root_path, dataset.path, is_directory=False)
+        dataset.path = _safely_join_path(subdirectory, dataset.path, is_directory=False)
+
+    return datasets
+
+
+def _insert_datasets(
+    butler: Butler, events: list[PromptProcessingOutputEvent], file_staging_root_path: str
+) -> None:
+    root = ResourcePath(file_staging_root_path)
+    datasets = []
+    for event in events:
+        deserialized_datasets = _deserialize_datasets(butler, event, root)
+        datasets.extend(deserialized_datasets)
 
     butler.ingest(*datasets, transfer="move")
 
