@@ -37,10 +37,7 @@ def main(repo: str, broker: str, where: str, collection: str, topic: str, output
 
     producer.produce(topic, message.model_dump_json())
     producer.flush()
-    print(message)
-    print(len(message.dimension_records))
-    print(len(message.datasets))
-    print(len(message.dataset_types))
+    print(f"{len(message.dimension_records)=} {len(message.datasets)=} {len(message.dataset_types)=}")
 
 
 def _find_dimension_records(butler: Butler, where: str) -> list[DimensionRecord]:
