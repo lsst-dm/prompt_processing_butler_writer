@@ -12,13 +12,22 @@ class KafkaReader:
         self._consumer = Consumer({"bootstrap.servers": cluster, "group.id": "butler-writer"})
         self._consumer.subscribe([topic])
 
-    def read_message(self) -> str:
-        poll_timeout = 30  # seconds
+    def read_messages(self, batch_size: int = 500, timeout_seconds: int = 30) -> list[str]:
         while True:
-            msg = self._consumer.poll(poll_timeout)
-            if msg is None:
-                _LOG.debug(f"Still waiting for Kafka message after {poll_timeout} seconds")
-            elif error := msg.error():
-                raise RuntimeError(f"Kafka returned an error: {error}")
+            messages = self._consumer.consume(batch_size, timeout_seconds)
+            if not messages:
+                _LOG.debug(f"Still waiting for Kafka message after {timeout_seconds} seconds")
             else:
-                return msg.value().decode("utf-8")
+                valid_messages = []
+                errors = []
+                for msg in messages:
+                    if (error := msg.error()) is None:
+                        valid_messages.append(msg)
+                    else:
+                        error_message = error.str()
+                        _LOG.error(f"Kafka error: {error_message}")
+                        errors.append(error_message)
+                if valid_messages:
+                    return [msg.value().decode("utf-8") for msg in valid_messages]
+                elif errors:
+                    raise RuntimeError(f"Error while reading Kafka messages: {errors}")

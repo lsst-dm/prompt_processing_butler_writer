@@ -34,14 +34,12 @@ def main():
     _LOG.info("Connecting to Kafka...")
     reader = KafkaReader(config.KAFKA_CLUSTER, config.KAFKA_TOPIC)
 
-    _LOG.info("Waiting for messages.")
+    _LOG.info("Waiting for messages...")
     while True:
-        message = reader.read_message()
-        event = PromptProcessingOutputEvent.model_validate_json(message)
-        _LOG.info(
-            f"Received message {event.type} with {len(event.datasets)} and {len(event.dimension_records)} dimension records"
-        )
-        handle_prompt_processing_completion(butler, [event], config.FILE_STAGING_ROOT_PATH)
+        messages = reader.read_messages()
+        events = [PromptProcessingOutputEvent.model_validate_json(msg) for msg in messages]
+        _LOG.info(f"Received {len(events)} messages")
+        handle_prompt_processing_completion(butler, events, config.FILE_STAGING_ROOT_PATH)
 
 
 if __name__ == "__main__":
