@@ -3,6 +3,9 @@ services:
     image: apache/kafka:3.7.2
     ports:
       - 9092:9092
+    tmpfs:
+      - /tmp:mode=777
+      - /opt/kafka/logs:mode=777
     environment:
       # These configuration values are from
       # https://github.com/apache/kafka/blob/trunk/docker/examples/docker-compose-files/single-node/plaintext/docker-compose.yml
@@ -33,6 +36,7 @@ services:
       KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1
       KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
+    
   init_kafka:
     # Create the topic used by the service.
     depends_on:
