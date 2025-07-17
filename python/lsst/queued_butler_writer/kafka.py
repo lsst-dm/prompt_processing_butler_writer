@@ -8,8 +8,14 @@ _LOG = logging.getLogger(__name__)
 
 
 class KafkaReader:
-    def __init__(self, cluster: str, topic: str) -> None:
-        self._consumer = Consumer({"bootstrap.servers": cluster, "group.id": "butler-writer"})
+    def __init__(self, cluster: str, topic: str, username: str | None, password: str | None) -> None:
+        config = {"bootstrap.servers": cluster, "group.id": "butler-writer"}
+        if username is not None:
+            config["security.protocol"] = "sasl_plaintext"
+            config["sasl.mechanism"] = "SCRAM-SHA-512"
+            config["sasl.username"] = username
+            config["sasl.password"] = password
+        self._consumer = Consumer(config)
         self._consumer.subscribe([topic])
 
     def read_messages(self, batch_size: int = 500, timeout_seconds: int = 30) -> list[str]:

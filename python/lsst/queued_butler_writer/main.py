@@ -12,9 +12,13 @@ from .messages import PromptProcessingOutputEvent
 
 
 class ServiceConfig(pydantic.BaseModel):
+    """Environment variables used to configure the Butler writer service."""
+
     BUTLER_REPOSITORY: str
     KAFKA_CLUSTER: str
     KAFKA_TOPIC: str
+    KAFKA_USERNAME: str | None = None
+    KAFKA_PASSWORD: str | None = None
     FILE_STAGING_ROOT_PATH: str
     """Path to the directory where files will be stored prior to ingestion into
     the Butler, as a URI string in the format understood by
@@ -32,7 +36,7 @@ def main():
     _LOG.info("Connecting to Butler...")
     butler = Butler(config.BUTLER_REPOSITORY, writeable=True)
     _LOG.info("Connecting to Kafka...")
-    reader = KafkaReader(config.KAFKA_CLUSTER, config.KAFKA_TOPIC)
+    reader = KafkaReader(config.KAFKA_CLUSTER, config.KAFKA_TOPIC, config.KAFKA_USERNAME, config.KAFKA_PASSWORD)
 
     _LOG.info("Waiting for messages...")
     while True:
