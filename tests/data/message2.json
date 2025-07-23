@@ -1,0 +1,64 @@
+{
+    "type": "pp-output",
+    "root_directory": "artifacts-123",
+    "dimension_records": [
+        {
+            "definition": "instrument",
+            "record": {
+                "name": "Cam1",
+                "visit_max": 1024,
+                "visit_system": 1,
+                "exposure_max": 512,
+                "detector_max": 4,
+                "class_name": "lsst.pipe.base.Instrument"
+            }
+        },
+        {
+            "definition": "physical_filter",
+            "record": {
+                "instrument": "Cam1",
+                "name": "Cam1-G",
+                "band": "g"
+            }
+        },
+        {
+            "definition": "detector",
+            "record": {
+                "instrument": "Cam1",
+                "id": 2,
+                "raft": "A",
+                "name_in_raft": "b",
+                "full_name": "Ab",
+                "purpose": "SCIENCE"
+            }
+        }
+    ],
+    "dataset_types": [
+        {
+            "name": "dt1",
+            "storageClass": "int",
+            "dimensions": [
+                "instrument",
+                "detector"
+            ],
+            "parentStorageClass": null,
+            "isCalibration": false
+        }
+    ],
+    "datasets": [
+        {
+            "refs": {
+                "58adc38b-0374-4656-9e7e-24d67792c02d": {
+                    "dataset_type_name": "dt1",
+                    "run": "Cam1/run",
+                    "data_id": {
+                        "instrument": "Cam1",
+                        "detector": 2
+                    }
+                }
+            },
+            "path": "c.json",
+            "formatter": "lsst.daf.butler.formatters.json.JsonFormatter"
+        }
+    ]
+}

@@ -57,7 +57,9 @@ def main():
     _LOG.info("Connecting to Butler...")
     butler = Butler(config.BUTLER_REPOSITORY, writeable=True)
     _LOG.info("Connecting to Kafka...")
-    reader = KafkaReader(config.KAFKA_CLUSTER, config.KAFKA_TOPIC, config.KAFKA_USERNAME, config.KAFKA_PASSWORD)
+    reader = KafkaReader(
+        config.KAFKA_CLUSTER, config.KAFKA_TOPIC, config.KAFKA_USERNAME, config.KAFKA_PASSWORD
+    )
 
     _LOG.info("Waiting for messages...")
     while True:
