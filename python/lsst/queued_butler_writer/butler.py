@@ -56,7 +56,9 @@ def _deserialize_dimension_records(
 
 def _insert_dimension_records(butler: Butler, records: list[DimensionRecord]) -> None:
     grouped_records = _group_and_deduplicate_dimension_records(records)
-    for dimension, records in grouped_records.items():
+    dimensions = butler.dimensions.sorted(grouped_records.keys())
+    for dimension in dimensions:
+        records = grouped_records[dimension.name]
         butler.registry.insertDimensionData(dimension, *records, skip_existing=True)
 
 
