@@ -25,7 +25,7 @@ import shutil
 import unittest
 from tempfile import TemporaryDirectory
 
-from lsst.daf.butler import Butler
+from lsst.daf.butler import Butler, DatasetType
 from lsst.queued_butler_writer.butler import handle_prompt_processing_completion
 from lsst.queued_butler_writer.messages import PromptProcessingOutputEvent
 
@@ -40,6 +40,15 @@ class TestButlerWrite(unittest.TestCase):
 
             Butler.makeRepo(butler_tempdir)
             butler = Butler.from_config(butler_tempdir, writeable=True)
+
+            # Register a dataset type which is used by datasets in the
+            # messages, but not explicitly included there.
+            # If the dataset type is already registered in the target Butler,
+            # it does not have to be specified in the messages.
+            butler.registry.registerDatasetType(
+                DatasetType("dt2", ["instrument", "detector"], "int", universe=butler.dimensions)
+            )
+
             messages = [self._load_message(filename) for filename in ["message1.json", "message2.json"]]
             handle_prompt_processing_completion(butler, messages, artifact_tempdir)
 

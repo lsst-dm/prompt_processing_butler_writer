@@ -82,7 +82,10 @@ def _deserialize_datasets(
     }
 
     def get_dataset_type(name: str) -> DatasetType:
-        return dataset_types[name]
+        if (dt := dataset_types.get(name)) is not None:
+            return dt
+
+        return butler.get_dataset_type(name)
 
     subdirectory = _safely_join_path(root_path, event.root_directory, is_directory=True)
 

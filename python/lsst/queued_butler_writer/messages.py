@@ -35,5 +35,5 @@ class PromptProcessingOutputEvent(pydantic.BaseModel):
     type: Literal["pp-output"]
     root_directory: str
     dimension_records: list[SerializedDimensionRecord]
-    dataset_types: list[SerializedDatasetType]
+    dataset_types: list[SerializedDatasetType] = pydantic.Field(default_factory=list)
     datasets: list[SerializedFileDataset]

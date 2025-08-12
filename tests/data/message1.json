@@ -43,16 +43,6 @@
             ],
             "parentStorageClass": null,
             "isCalibration": false
-        },
-        {
-            "name": "dt2",
-            "storageClass": "int",
-            "dimensions": [
-                "instrument",
-                "detector"
-            ],
-            "parentStorageClass": null,
-            "isCalibration": false
         }
     ],
     "datasets": [
