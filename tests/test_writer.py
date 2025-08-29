@@ -20,7 +20,6 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import os
-import pathlib
 import shutil
 import unittest
 from tempfile import TemporaryDirectory
@@ -33,12 +32,12 @@ from lsst.queued_butler_writer.messages import PromptProcessingOutputEvent
 class TestButlerWrite(unittest.TestCase):
     def test_write(self):
         artifact_directory = os.path.join(self._get_data_directory(), "exported_artifacts")
-        with TemporaryDirectory() as butler_tempdir, TemporaryDirectory() as artifact_tempdir:
-            # As part of the ingestion process the original files are deleted,
-            # so make a copy.
-            shutil.copytree(artifact_directory, artifact_tempdir, dirs_exist_ok=True)
-
+        with TemporaryDirectory() as butler_tempdir:
             Butler.makeRepo(butler_tempdir)
+            # Copy the files into the Butler datastore directory so they can be
+            # found by ingest.
+            shutil.copytree(artifact_directory, butler_tempdir, dirs_exist_ok=True)
+
             butler = Butler.from_config(butler_tempdir, writeable=True)
 
             # Register a dataset type which is used by datasets in the
@@ -50,7 +49,7 @@ class TestButlerWrite(unittest.TestCase):
             )
 
             messages = [self._load_message(filename) for filename in ["message1.json", "message2.json"]]
-            handle_prompt_processing_completion(butler, messages, artifact_tempdir)
+            handle_prompt_processing_completion(butler, messages)
 
             # Make sure data was ingested into the target Butler.
             self.assertEqual(
@@ -62,9 +61,6 @@ class TestButlerWrite(unittest.TestCase):
             self.assertEqual(
                 butler.get("dt1", {"instrument": "Cam1", "detector": 2}, collections="Cam1/run"), 3
             )
-
-            # Make sure that data was deleted out of the source directory.
-            self.assertEqual(list(pathlib.Path(artifact_tempdir).rglob("*.json")), [])
 
     def _get_data_directory(self) -> str:
         test_directory = os.path.abspath(os.path.dirname(__file__))

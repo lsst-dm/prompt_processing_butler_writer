@@ -1,6 +1,5 @@
 {
     "type": "pp-output",
-    "root_directory": "artifacts-123",
     "dimension_records": [
         {
             "definition": "instrument",
