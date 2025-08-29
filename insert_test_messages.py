@@ -2,9 +2,9 @@ from uuid import uuid4
 
 import click
 from confluent_kafka import Producer
-from lsst.daf.butler import Butler, DatasetRef, DimensionRecord
+from lsst.daf.butler import Butler, ButlerConfig, DatasetRef, DimensionRecord
+from lsst.daf.butler._rubin.file_datasets import transfer_datasets_to_datastore
 from lsst.queued_butler_writer.messages import PromptProcessingOutputEvent
-from lsst.resources import ResourcePath
 
 
 @click.command()
@@ -12,19 +12,17 @@ from lsst.resources import ResourcePath
 @click.option("--topic", default="rubin-prompt-processing-butler-output")
 # By default, pull data from a copy of ci_hsc checked out adjacent to this
 # repository.
-@click.option("--repo", default="../ci_hsc_gen3/DATA")
+@click.option("--input-repo", default="../ci_hsc_gen3/DATA")
 @click.option("--collection", default="HSC/runs/ci_hsc")
 @click.option("--where", default="")
-@click.option("--output-root", default="./staging-directory")
-def main(repo: str, broker: str, where: str, collection: str, topic: str, output_root: str) -> None:
+@click.option("--output-repo", default="./testrepo")
+def main(input_repo: str, broker: str, where: str, collection: str, topic: str, output_repo: str) -> None:
     producer = Producer({"bootstrap.servers": broker})
-    butler = Butler.from_config(repo)
+    butler = Butler.from_config(input_repo)
     dimension_records = _find_dimension_records(butler, where)
     datasets = _find_datasets(butler, where, collection)
     subdirectory = str(uuid4())
-    output_directory = ResourcePath(output_root).join(subdirectory)
-    output_directory.mkdir()
-    file_datasets = butler._datastore.export(datasets, directory=output_directory, transfer="copy")
+    file_datasets = transfer_datasets_to_datastore(butler, ButlerConfig(output_repo), datasets)
     dataset_types = {dataset.datasetType for dataset in datasets}
 
     message = PromptProcessingOutputEvent(
