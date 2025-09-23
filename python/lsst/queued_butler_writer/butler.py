@@ -96,4 +96,4 @@ def _insert_datasets(butler: Butler, events: list[PromptProcessingOutputEvent]) 
         deserialized_datasets = _deserialize_datasets(butler, event)
         datasets.extend(deserialized_datasets)
 
-    butler.ingest(*datasets, transfer=None)
+    butler.ingest(*datasets, transfer=None, skip_existing=True)

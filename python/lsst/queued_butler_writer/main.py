@@ -58,11 +58,11 @@ def main():
 
     _LOG.info("Waiting for messages...")
     while True:
-        messages = reader.read_messages()
-        events = [PromptProcessingOutputEvent.model_validate_json(msg) for msg in messages]
-        _LOG.info(f"Received {len(events)} messages")
-        handle_prompt_processing_completion(butler, events)
-        _LOG.info(f"Successfully processed {len(events)} messages")
+        with reader.read_messages() as messages:
+            events = [PromptProcessingOutputEvent.model_validate_json(msg) for msg in messages]
+            _LOG.info(f"Received {len(events)} messages")
+            handle_prompt_processing_completion(butler, events)
+            _LOG.info(f"Successfully processed {len(events)} messages")
 
 
 if __name__ == "__main__":
