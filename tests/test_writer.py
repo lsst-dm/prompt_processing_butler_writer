@@ -62,6 +62,15 @@ class TestButlerWrite(unittest.TestCase):
                 butler.get("dt1", {"instrument": "Cam1", "detector": 2}, collections="Cam1/run"), 3
             )
 
+            with self.assertLogs(level="ERROR") as logs:
+                # Process a message that will trigger a
+                # ConflictingDefinitionError in the Butler, and ensure that we
+                # log the error but do not abort processing.
+                handle_prompt_processing_completion(
+                    butler, [self._load_message("conflicting-message.json"), *messages]
+                )
+            self.assertTrue(any("Encountered unrecoverable error" in msg for msg in logs.output))
+
     def _get_data_directory(self) -> str:
         test_directory = os.path.abspath(os.path.dirname(__file__))
         return os.path.join(test_directory, "data")

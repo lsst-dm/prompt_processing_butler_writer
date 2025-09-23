@@ -1,0 +1,21 @@
+{
+    "type": "pp-output",
+    "dimension_records": [],
+    "dataset_types": [],
+    "datasets": [
+        {
+            "refs": {
+                "11111111-2ea3-5a15-8009-a3056e49c379": {
+                    "dataset_type_name": "dt1",
+                    "run": "Cam1/run",
+                    "data_id": {
+                        "instrument": "Cam1",
+                        "detector": 1
+                    }
+                }
+            },
+            "path": "a.json",
+            "formatter": "lsst.daf.butler.formatters.json.JsonFormatter"
+        }
+    ]
+}
