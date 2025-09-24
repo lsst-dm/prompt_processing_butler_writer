@@ -52,6 +52,9 @@ class KafkaReader:
         self._consumer.subscribe([topic])
         self._pending_messages: list[Message] = []
 
+    def close(self) -> None:
+        self._consumer.close()
+
     @contextmanager
     def read_messages(self) -> Iterator[list[str]]:
         """Context manager returning a batch of messages read from Kafka.  If

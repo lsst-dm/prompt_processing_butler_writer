@@ -57,9 +57,12 @@ def main():
         config.KAFKA_CLUSTER, config.KAFKA_TOPIC, config.KAFKA_USERNAME, config.KAFKA_PASSWORD
     )
 
-    _LOG.info("Waiting for messages...")
-    while True:
-        _process_messages(reader, butler)
+    try:
+        _LOG.info("Waiting for messages...")
+        while True:
+            _process_messages(reader, butler)
+    finally:
+        reader.close()
 
 
 @backoff.on_exception(
