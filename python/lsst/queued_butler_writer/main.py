@@ -24,6 +24,7 @@ from __future__ import annotations
 import logging
 import os
 
+import backoff
 import pydantic
 from lsst.daf.butler import Butler
 
@@ -58,11 +59,18 @@ def main():
 
     _LOG.info("Waiting for messages...")
     while True:
-        with reader.read_messages() as messages:
-            events = [PromptProcessingOutputEvent.model_validate_json(msg) for msg in messages]
-            _LOG.info(f"Received {len(events)} messages")
-            handle_prompt_processing_completion(butler, events)
-            _LOG.info(f"Successfully processed {len(events)} messages")
+        _process_messages(reader, butler)
+
+
+@backoff.on_exception(
+    backoff.expo, exception=Exception, logger=_LOG, base=10, max_value=30, max_tries=5, jitter=None
+)
+def _process_messages(reader: KafkaReader, butler: Butler) -> None:
+    with reader.read_messages() as messages:
+        events = [PromptProcessingOutputEvent.model_validate_json(msg) for msg in messages]
+        _LOG.info(f"Received {len(events)} messages")
+        handle_prompt_processing_completion(butler, events)
+        _LOG.info(f"Successfully processed {len(events)} messages")
 
 
 if __name__ == "__main__":
