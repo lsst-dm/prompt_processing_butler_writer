@@ -22,15 +22,27 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 
-from confluent_kafka import Consumer
+from confluent_kafka import Consumer, Message
 
 _LOG = logging.getLogger(__name__)
 
 
 class KafkaReader:
+    _BATCH_SIZE = 500
+    _TIMEOUT_SECONDS = 30
+
     def __init__(self, cluster: str, topic: str, username: str | None, password: str | None) -> None:
-        config = {"bootstrap.servers": cluster, "group.id": "butler-writer"}
+        config = {
+            "bootstrap.servers": cluster,
+            "group.id": "butler-writer",
+            # Configure manual commit of read offsets to guarantee
+            # at-least-once processing of messages.
+            "enable.auto.commit": "false",  # allow use of Consumer.commit()
+            "auto.offset.reset": "earliest",  # read from the beginning if there is no stored offset
+        }
         if username is not None:
             config["security.protocol"] = "sasl_plaintext"
             config["sasl.mechanism"] = "SCRAM-SHA-512"
@@ -38,12 +50,44 @@ class KafkaReader:
             config["sasl.password"] = password
         self._consumer = Consumer(config)
         self._consumer.subscribe([topic])
+        self._pending_messages: list[Message] = []
 
-    def read_messages(self, batch_size: int = 500, timeout_seconds: int = 30) -> list[str]:
+    def close(self) -> None:
+        self._consumer.close()
+
+    @contextmanager
+    def read_messages(self) -> Iterator[list[str]]:
+        """Context manager returning a batch of messages read from Kafka.  If
+        the context manager is exited cleanly without the caller's code
+        throwing an exception, the messages are consumed and the read
+        position is committed to the Kafka broker.  If an exception is
+        thrown by the caller inside the context manager, the read position is
+        not committed and the same messages will be returned the next time
+        read_messages() is called.
+
+        Returns
+        -------
+        messages
+            The list of messages read from Kafka, decoded as UTF-8 strings.
+        """
+        # If we have some messages that we read out of Kafka but that the
+        # caller failed to process, return them again.  This helps us guarantee
+        # at-least-once processing without needing to manually seek() the Kafka
+        # read offset on failure.
+        if not self._pending_messages:
+            self._pending_messages = self._fetch_next_message_batch()
+
+        yield [msg.value().decode("utf-8") for msg in self._pending_messages]
+
+        # Permanently store our read position at the broker.
+        self._consumer.commit(asynchronous=False)
+        self._pending_messages = []
+
+    def _fetch_next_message_batch(self) -> list[Message]:
         while True:
-            messages = self._consumer.consume(batch_size, timeout_seconds)
+            messages = self._consumer.consume(self._BATCH_SIZE, self._TIMEOUT_SECONDS)
             if not messages:
-                _LOG.debug(f"Still waiting for Kafka message after {timeout_seconds} seconds")
+                _LOG.debug(f"Still waiting for Kafka message after {self._TIMEOUT_SECONDS} seconds")
             else:
                 valid_messages = []
                 errors = []
@@ -55,6 +99,6 @@ class KafkaReader:
                         _LOG.error(f"Kafka error: {error_message}")
                         errors.append(error_message)
                 if valid_messages:
-                    return [msg.value().decode("utf-8") for msg in valid_messages]
+                    return valid_messages
                 elif errors:
                     raise RuntimeError(f"Error while reading Kafka messages: {errors}")

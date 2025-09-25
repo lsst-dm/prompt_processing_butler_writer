@@ -19,6 +19,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+import logging
+
 from lsst.daf.butler import (
     Butler,
     DatasetType,
@@ -26,14 +28,47 @@ from lsst.daf.butler import (
     DimensionRecordSet,
     FileDataset,
 )
+from lsst.daf.butler.registry import ConflictingDefinitionError
 
 from .messages import PromptProcessingOutputEvent
 
+_LOG = logging.getLogger(__name__)
+
 
 def handle_prompt_processing_completion(butler: Butler, events: list[PromptProcessingOutputEvent]) -> None:
+    try:
+        _insert_data_from_messages(butler, events)
+    except ConflictingDefinitionError as e:
+        # If there is a mismatch between the data we are inserting and the data
+        # already in the database, Butler will throw
+        # ConflictingDefinitionError.
+        #
+        # One way this could happen is if two pods accidentally handle the same
+        # image, generating different dataset UUIDs for the same data ID.
+        #
+        # This is not expected to occur during normal operation, but if it
+        # does we could get stuck on this message because retrying will not
+        # solve this issue.  In this case we move past the problematic message
+        # by retrying one at a time so we don't lose the entire batch.
+        _LOG.error(
+            "Encountered unrecoverable error while ingesting batch."
+            "Retrying one message at a time to recover.",
+            exc_info=e,
+        )
+        for event in events:
+            try:
+                _insert_data_from_messages(butler, [event])
+            except ConflictingDefinitionError as single_message_error:
+                _LOG.error(
+                    "Unrecoverable error for message:\n%s",
+                    event.model_dump_json(indent=2),
+                    exc_info=single_message_error,
+                )
+
+
+def _insert_data_from_messages(butler: Butler, events: list[PromptProcessingOutputEvent]) -> None:
     dimension_records = _deserialize_dimension_records(butler, events)
     _insert_dimension_records(butler, dimension_records)
-
     _insert_datasets(butler, events)
 
 
@@ -96,4 +131,4 @@ def _insert_datasets(butler: Butler, events: list[PromptProcessingOutputEvent]) 
         deserialized_datasets = _deserialize_datasets(butler, event)
         datasets.extend(deserialized_datasets)
 
-    butler.ingest(*datasets, transfer=None)
+    butler.ingest(*datasets, transfer=None, skip_existing=True)
