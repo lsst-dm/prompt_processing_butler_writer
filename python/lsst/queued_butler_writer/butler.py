@@ -20,6 +20,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
+from lsst.utils.timer import time_this
 
 from lsst.daf.butler import (
     Butler,
@@ -91,7 +92,8 @@ def _insert_dimension_records(butler: Butler, records: list[DimensionRecord]) ->
     dimensions = butler.dimensions.sorted(grouped_records.keys())
     for dimension in dimensions:
         records = grouped_records[dimension.name]
-        butler.registry.insertDimensionData(dimension, *records, skip_existing=True)
+        with time_this(_LOG, msg=f"inserted {len(records)} dimension data records", level=logging.DEBUG):
+            butler.registry.insertDimensionData(dimension, *records, skip_existing=True)
 
 
 def _group_and_deduplicate_dimension_records(records: list[DimensionRecord]) -> dict[str, DimensionRecordSet]:
@@ -131,4 +133,5 @@ def _insert_datasets(butler: Butler, events: list[PromptProcessingOutputEvent]) 
         deserialized_datasets = _deserialize_datasets(butler, event)
         datasets.extend(deserialized_datasets)
 
-    butler.ingest(*datasets, transfer=None, skip_existing=True)
+    with time_this(_LOG, msg=f"ingested {len(datasets)} datasets", level=logging.DEBUG):
+        butler.ingest(*datasets, transfer=None, skip_existing=True)

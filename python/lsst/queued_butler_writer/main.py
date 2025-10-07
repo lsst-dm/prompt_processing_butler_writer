@@ -41,15 +41,17 @@ class ServiceConfig(pydantic.BaseModel):
     KAFKA_TOPIC: str
     KAFKA_USERNAME: str | None = None
     KAFKA_PASSWORD: str | None = None
+    WRITER_DEBUG_LEVEL: str | None = None
 
 
 _LOG = logging.getLogger(__name__)
 
 
 def main():
-    logging.basicConfig()
-    logging.getLogger().setLevel("INFO")
     config = ServiceConfig.model_validate_strings(dict(os.environ))
+    level_mapping = logging.getLevelNamesMapping()
+    level = level_mapping.get(config.WRITER_DEBUG_LEVEL, logging.INFO)
+    logging.basicConfig(level=level)
     _LOG.info("Connecting to Butler...")
     butler = Butler(config.BUTLER_REPOSITORY, writeable=True)
     _LOG.info("Connecting to Kafka...")
