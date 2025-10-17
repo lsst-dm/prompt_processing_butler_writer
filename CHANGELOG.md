@@ -1,5 +1,16 @@
 # Prompt Processing Butler Writer service releases
 
+## 2.2.0
+
+We no longer record file sizes for ingested datasets in the Butler database.
+This avoids an S3 HEAD call per dataset.
+
+We now log timing information for the Butler dimension record inserts and
+dataset ingestion.
+
+There is a new optional environment variable `WRITER_DEBUG_LEVEL` to control
+the Python log level.
+
 ## 2.1.0
 
 When reading from Kafka, we now commit the read offset only after successfully
