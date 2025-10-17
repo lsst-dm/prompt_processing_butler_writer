@@ -134,4 +134,6 @@ def _insert_datasets(butler: Butler, events: list[PromptProcessingOutputEvent]) 
         datasets.extend(deserialized_datasets)
 
     with time_this(_LOG, msg=f"ingested {len(datasets)} datasets", level=logging.DEBUG):
-        butler.ingest(*datasets, transfer=None, skip_existing=True)
+        butler.ingest(
+            *datasets, transfer=None, skip_existing=True, record_validation_info=False
+        )
