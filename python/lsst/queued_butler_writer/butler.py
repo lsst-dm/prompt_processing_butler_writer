@@ -68,8 +68,7 @@ def handle_prompt_processing_completion(butler: Butler, events: list[PromptProce
 
 
 def _insert_data_from_messages(butler: Butler, events: list[PromptProcessingOutputEvent]) -> None:
-    dimension_records = _deserialize_dimension_records(butler, events)
-    _insert_dimension_records(butler, dimension_records)
+    _insert_dimension_records(butler, events)
     _insert_datasets(butler, events)
 
 
@@ -87,7 +86,8 @@ def _deserialize_dimension_records(
     return output
 
 
-def _insert_dimension_records(butler: Butler, records: list[DimensionRecord]) -> None:
+def _insert_dimension_records(butler: Butler, events: list[PromptProcessingOutputEvent]) -> None:
+    records = _deserialize_dimension_records(butler, events)
     grouped_records = _group_and_deduplicate_dimension_records(records)
     dimensions = butler.dimensions.sorted(grouped_records.keys())
     for dimension in dimensions:
