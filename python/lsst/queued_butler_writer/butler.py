@@ -68,8 +68,7 @@ def handle_prompt_processing_completion(butler: Butler, events: list[PromptProce
 
 
 def _insert_data_from_messages(butler: Butler, events: list[PromptProcessingOutputEvent]) -> None:
-    dimension_records = _deserialize_dimension_records(butler, events)
-    _insert_dimension_records(butler, dimension_records)
+    _insert_dimension_records(butler, events)
     _insert_datasets(butler, events)
 
 
@@ -87,12 +86,20 @@ def _deserialize_dimension_records(
     return output
 
 
-def _insert_dimension_records(butler: Butler, records: list[DimensionRecord]) -> None:
+def _insert_dimension_records(butler: Butler, events: list[PromptProcessingOutputEvent]) -> None:
+    records = _deserialize_dimension_records(butler, events)
     grouped_records = _group_and_deduplicate_dimension_records(records)
     dimensions = butler.dimensions.sorted(grouped_records.keys())
-    for dimension in dimensions:
-        records = grouped_records[dimension.name]
-        with time_this(_LOG, msg=f"inserted {len(records)} dimension data records", level=logging.DEBUG):
+
+    with time_this(
+        _LOG,
+        # Assuming one event per pipeline run
+        msg=f"inserted {sum(len(r) for r in grouped_records.values())} dimension data records "
+        f"from {len(events)} events",
+        level=logging.DEBUG,
+    ):
+        for dimension in dimensions:
+            records = grouped_records[dimension.name]
             butler.registry.insertDimensionData(dimension, *records, skip_existing=True)
 
 
@@ -133,7 +140,12 @@ def _insert_datasets(butler: Butler, events: list[PromptProcessingOutputEvent]) 
         deserialized_datasets = _deserialize_datasets(butler, event)
         datasets.extend(deserialized_datasets)
 
-    with time_this(_LOG, msg=f"ingested {len(datasets)} datasets", level=logging.DEBUG):
+    with time_this(
+        _LOG,
+        # Assuming one event per pipeline run
+        msg=f"ingested {len(datasets)} datasets from {len(events)} events",
+        level=logging.DEBUG,
+    ):
         butler.ingest(
             *datasets, transfer=None, skip_existing=True, record_validation_info=False
         )
