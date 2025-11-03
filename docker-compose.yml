@@ -9,7 +9,7 @@ services:
     environment:
       # These configuration values are from
       # https://github.com/apache/kafka/blob/trunk/docker/examples/docker-compose-files/single-node/plaintext/docker-compose.yml
-      # 
+      #
       # We can't use the default configuration, because we want to be able to reach the container
       # from outside the Docker network.
       #
@@ -36,7 +36,7 @@ services:
       KAFKA_SHARE_COORDINATOR_STATE_TOPIC_REPLICATION_FACTOR: 1
       KAFKA_SHARE_COORDINATOR_STATE_TOPIC_MIN_ISR: 1
       KAFKA_LOG_DIRS: '/tmp/kraft-combined-logs'
-    
+
   init_kafka:
     # Create the topic used by the service.
     depends_on:

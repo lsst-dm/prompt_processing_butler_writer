@@ -146,6 +146,4 @@ def _insert_datasets(butler: Butler, events: list[PromptProcessingOutputEvent]) 
         msg=f"ingested {len(datasets)} datasets from {len(events)} events",
         level=logging.DEBUG,
     ):
-        butler.ingest(
-            *datasets, transfer=None, skip_existing=True, record_validation_info=False
-        )
+        butler.ingest(*datasets, transfer=None, skip_existing=True, record_validation_info=False)

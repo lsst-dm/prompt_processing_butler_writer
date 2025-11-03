@@ -5,11 +5,19 @@ This is a microservice to batch [Butler](https://github.com/lsst/daf_butler) dat
 [Prompt Processing](https://github.com/lsst-dm/prompt_processing) framework.
 The rationale for its existence is discussed in [DMTN-310](https://dmtn-310.lsst.io/).
 
+## Automatic code formatting
+
+This repo uses Ruff for automatic formatting.  To set up a pre-commit hook to apply the required formatting, run:
+```
+pip install pre-commit
+pre-commit install
+```
+
 ## Testing
 
 There are a few things in this repo to help with testing:
 * `docker-compose.yaml` file with a Docker configuration for a local Kafka broker setup.
-* A script `insert_test_messages.py` that can be used to send messages to 
+* A script `insert_test_messages.py` that can be used to send messages to
   the broker for testing the service.
 * A script `run_service.sh` that starts up the broker and the writer service.
 
