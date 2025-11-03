@@ -44,6 +44,7 @@ class KafkaReader:
             "auto.offset.reset": "earliest",  # read from the beginning if there is no stored offset
         }
         if username is not None:
+            assert password is not None, "If username is provided, password must also be set."
             config["security.protocol"] = "sasl_plaintext"
             config["sasl.mechanism"] = "SCRAM-SHA-512"
             config["sasl.username"] = username
