@@ -22,3 +22,6 @@ convention = "numpy"
 docstring-code-format = true
 # Formatter does not know about indenting.
 docstring-code-line-length = 69
+
+[tool.lsst_versions]
+write_to = "python/lsst/queued_butler_writer/version.py"
