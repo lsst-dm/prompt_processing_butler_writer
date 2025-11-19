@@ -103,3 +103,19 @@ class KafkaReader:
                     return valid_messages
                 elif errors:
                     raise RuntimeError(f"Error while reading Kafka messages: {errors}")
+
+
+class MockKafkaReader:
+    def __init__(self) -> None:
+        self._pending_messages: list[str] = []
+
+    def add_messages(self, messages: list[str]) -> None:
+        self._pending_messages.extend(messages)
+
+    def has_pending_messages(self) -> bool:
+        return len(self._pending_messages) > 0
+
+    @contextmanager
+    def read_messages(self) -> Iterator[list[str]]:
+        yield self._pending_messages
+        self._pending_messages = []

@@ -21,16 +21,19 @@
 
 from __future__ import annotations
 
+import datetime
 import logging
 import os
+from uuid import uuid4
 
 import backoff
 import pydantic
-from lsst.daf.butler import Butler
+from lsst.daf.butler import Butler, DatasetId
+from lsst.resources import ResourcePath
 
 from .butler import handle_prompt_processing_completion
 from .kafka import KafkaReader
-from .messages import PromptProcessingOutputEvent
+from .messages import PromptProcessingOutputEvent, DatasetBatch, BatchIngestedEvent
 
 
 class ServiceConfig(pydantic.BaseModel):
@@ -39,8 +42,17 @@ class ServiceConfig(pydantic.BaseModel):
     BUTLER_REPOSITORY: str
     KAFKA_CLUSTER: str
     KAFKA_TOPIC: str
+    """Input topic where messages are received from worker pods, signaling the
+    availability of new files for ingest.
+    """
     KAFKA_USERNAME: str | None = None
     KAFKA_PASSWORD: str | None = None
+    OUTPUT_DATASET_LIST_DIRECTORY: str
+    """
+    Directory URI (in `lsst.resources.ResourcePath` format) where lists of
+    ingested datasets will be written.  This storage location is referenced
+    by Kafka messages sent to `KAFKA_OUTPUT_TOPIC`, above.
+    """
     WRITER_DEBUG_LEVEL: str | None = None
 
 
@@ -77,12 +89,28 @@ class MessageProcessor:
     @backoff.on_exception(
         backoff.expo, exception=Exception, logger=_LOG, base=10, max_value=30, max_tries=5, jitter=None
     )
-    def process_messages(self) -> None:
+    def process_messages(self) -> BatchIngestedEvent:
         with self._reader.read_messages() as messages:
             events = [PromptProcessingOutputEvent.model_validate_json(msg) for msg in messages]
             _LOG.info(f"Received {len(events)} messages")
-            handle_prompt_processing_completion(self._butler, events)
+            dataset_ids = handle_prompt_processing_completion(self._butler, events)
+            _LOG.info(f"Ingested {len(events)} messages into the Butler")
+            output = self._write_output_message(dataset_ids)
+            _LOG.info(f"Wrote dataset list to '{output.batch_file}'")
             _LOG.info(f"Successfully processed {len(events)} messages")
+            return output
+
+    def _write_output_message(self, datasets: list[DatasetId]) -> BatchIngestedEvent:
+        current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%S-%f")
+        batch_id = uuid4()
+        filename = f"{current_time}-{batch_id}.json"
+        output_data = DatasetBatch(datasets=datasets).model_dump_json().encode("utf-8")
+        output_path = ResourcePath(self._config.OUTPUT_DATASET_LIST_DIRECTORY).join(filename)
+        output_path.write(output_data)
+
+        return BatchIngestedEvent(
+            type="batch-ingested", batch_id=batch_id, origin="prompt_processing", batch_file=filename
+        )
 
 
 if __name__ == "__main__":
