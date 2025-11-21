@@ -9,7 +9,7 @@ from lsst.queued_butler_writer.messages import PromptProcessingOutputEvent
 
 @click.command()
 @click.option("--broker", default="localhost:9092")
-@click.option("--topic", default="rubin-prompt-processing-butler-output")
+@click.option("--topic", default="writer-input")
 # By default, pull data from a copy of ci_hsc checked out adjacent to this
 # repository.
 @click.option("--input-repo", default="../ci_hsc_gen3/DATA")

@@ -28,7 +28,7 @@ from tempfile import TemporaryDirectory
 from lsst.daf.butler import Butler, DatasetType
 from lsst.resources import ResourcePath
 from lsst.queued_butler_writer.main import MessageProcessor, ServiceConfig
-from lsst.queued_butler_writer.kafka import MockKafkaReader
+from lsst.queued_butler_writer.kafka import MockKafkaConnection
 from lsst.queued_butler_writer.messages import BatchIngestedEvent, DatasetBatch
 
 
@@ -43,9 +43,10 @@ class TestButlerWrite(unittest.TestCase):
             BUTLER_REPOSITORY="",
             KAFKA_CLUSTER="",
             KAFKA_TOPIC="",
+            KAFKA_OUTPUT_TOPIC="",
             OUTPUT_DATASET_LIST_DIRECTORY=f"file://{self._output_dir}",
         )
-        self._kafka_reader = MockKafkaReader()
+        self._kafka_reader = MockKafkaConnection()
         self._message_processor = MessageProcessor(mock_config, self._butler, self._kafka_reader)
 
     def test_write(self) -> None:
@@ -64,8 +65,10 @@ class TestButlerWrite(unittest.TestCase):
 
         messages = [self._load_message(filename) for filename in ["message1.json", "message2.json"]]
         self._kafka_reader.add_messages(messages)
-        output = self._message_processor.process_messages()
+        self._message_processor.process_messages()
         self.assertFalse(self._kafka_reader.has_pending_messages())
+        self.assertEqual(len(self._kafka_reader.last_output), 1)
+        output = BatchIngestedEvent.model_validate_json(self._kafka_reader.last_output[0])
         self.assertEqual(output.origin, "prompt_processing")
         self.assertIn(str(output.batch_id), output.batch_file)
         batch = self._read_output_batch(output)
@@ -94,8 +97,10 @@ class TestButlerWrite(unittest.TestCase):
             # ConflictingDefinitionError in the Butler, and ensure that we
             # log the error but do not abort processing.
             self._kafka_reader.add_messages([self._load_message("conflicting-message.json"), *messages])
-            output = self._message_processor.process_messages()
+            self._message_processor.process_messages()
             self.assertFalse(self._kafka_reader.has_pending_messages())
+            self.assertEqual(len(self._kafka_reader.last_output), 1)
+            output = BatchIngestedEvent.model_validate_json(self._kafka_reader.last_output[0])
             batch = self._read_output_batch(output)
             self.assertCountEqual(
                 batch.datasets,
@@ -117,5 +122,7 @@ class TestButlerWrite(unittest.TestCase):
             return fh.read()
 
     def _read_output_batch(self, message: BatchIngestedEvent) -> DatasetBatch:
-        batch_data = ResourcePath(self._output_dir).join(message.batch_file).read().decode("utf-8")
-        return DatasetBatch.model_validate_json(batch_data)
+        batch_json = ResourcePath(self._output_dir).join(message.batch_file).read().decode("utf-8")
+        batch = DatasetBatch.model_validate_json(batch_json)
+        self.assertEqual(message.batch_id, batch.batch_id)
+        return batch

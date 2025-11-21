@@ -52,6 +52,7 @@ class BatchIngestedEvent(pydantic.BaseModel):
 
     type: Literal["batch-ingested"]
     batch_id: UUID
+    """Identifier for this batch of datasets."""
     origin: str
     """The name of the service that these datasets originated from."""
     batch_file: str
@@ -61,4 +62,11 @@ class BatchIngestedEvent(pydantic.BaseModel):
 
 
 class DatasetBatch(pydantic.BaseModel):
+    """List of datasets contained in JSON file that will be consumed by the
+    Prompt Publication Service.
+    """
+
+    batch_id: UUID
+    """Identifier for this batch of datasets."""
     datasets: list[UUID]
+    """List of dataset IDs that were ingested into the Butler database."""

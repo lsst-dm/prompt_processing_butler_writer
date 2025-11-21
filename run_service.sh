@@ -1,7 +1,8 @@
 #!/bin/bash
 
 export KAFKA_CLUSTER=localhost:9092
-export KAFKA_TOPIC=rubin-prompt-processing-butler-output
+export KAFKA_TOPIC=writer-input
+export KAFKA_OUTPUT_TOPIC=writer-output
 export BUTLER_REPOSITORY=$(dirname "$0")/testrepo
 export OUTPUT_DATASET_LIST_DIRECTORY=$(dirname "$0")/output-directory
 
