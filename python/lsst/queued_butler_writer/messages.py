@@ -61,4 +61,5 @@ class BatchIngestedEvent(pydantic.BaseModel):
 
 
 class DatasetBatch(pydantic.BaseModel):
+    batch_id: UUID
     datasets: list[UUID]
