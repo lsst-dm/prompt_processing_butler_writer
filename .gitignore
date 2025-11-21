@@ -20,6 +20,9 @@ pytest_session.txt
 .pytest_cache
 .coverage
 
+.env
+
 testrepo/
 staging-directory/
+output-directory/
 python/lsst_queued_butler_writer.dist-info

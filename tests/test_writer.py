@@ -22,61 +22,107 @@
 import os
 import shutil
 import unittest
+from uuid import UUID
 from tempfile import TemporaryDirectory
 
 from lsst.daf.butler import Butler, DatasetType
-from lsst.queued_butler_writer.butler import handle_prompt_processing_completion
-from lsst.queued_butler_writer.messages import PromptProcessingOutputEvent
+from lsst.resources import ResourcePath
+from lsst.queued_butler_writer.main import MessageProcessor, ServiceConfig
+from lsst.queued_butler_writer.kafka import MockKafkaConnection
+from lsst.queued_butler_writer.messages import BatchIngestedEvent, DatasetBatch
 
 
 class TestButlerWrite(unittest.TestCase):
-    def test_write(self):
+    def setUp(self) -> None:
+        self._butler_root = self.enterContext(TemporaryDirectory())
+        Butler.makeRepo(self._butler_root)
+        self._butler = Butler.from_config(self._butler_root, writeable=True)
+
+        self._output_dir = self.enterContext(TemporaryDirectory())
+        mock_config = ServiceConfig(
+            BUTLER_REPOSITORY="",
+            KAFKA_CLUSTER="",
+            KAFKA_TOPIC="",
+            KAFKA_OUTPUT_TOPIC="",
+            OUTPUT_DATASET_LIST_DIRECTORY=f"file://{self._output_dir}",
+        )
+        self._kafka_reader = MockKafkaConnection()
+        self._message_processor = MessageProcessor(mock_config, self._butler, self._kafka_reader)
+
+    def test_write(self) -> None:
         artifact_directory = os.path.join(self._get_data_directory(), "exported_artifacts")
-        with TemporaryDirectory() as butler_tempdir:
-            Butler.makeRepo(butler_tempdir)
-            # Copy the files into the Butler datastore directory so they can be
-            # found by ingest.
-            shutil.copytree(artifact_directory, butler_tempdir, dirs_exist_ok=True)
+        # Copy the files into the Butler datastore directory so they can be
+        # found by ingest.
+        shutil.copytree(artifact_directory, self._butler_root, dirs_exist_ok=True)
 
-            butler = Butler.from_config(butler_tempdir, writeable=True)
+        # Register a dataset type which is used by datasets in the
+        # messages, but not explicitly included there.
+        # If the dataset type is already registered in the target Butler,
+        # it does not have to be specified in the messages.
+        self._butler.registry.registerDatasetType(
+            DatasetType("dt2", ["instrument", "detector"], "int", universe=self._butler.dimensions)
+        )
 
-            # Register a dataset type which is used by datasets in the
-            # messages, but not explicitly included there.
-            # If the dataset type is already registered in the target Butler,
-            # it does not have to be specified in the messages.
-            butler.registry.registerDatasetType(
-                DatasetType("dt2", ["instrument", "detector"], "int", universe=butler.dimensions)
+        messages = [self._load_message(filename) for filename in ["message1.json", "message2.json"]]
+        self._kafka_reader.add_messages(messages)
+        self._message_processor.process_messages()
+        self.assertFalse(self._kafka_reader.has_pending_messages())
+        self.assertEqual(len(self._kafka_reader.last_output), 1)
+        output = BatchIngestedEvent.model_validate_json(self._kafka_reader.last_output[0])
+        self.assertEqual(output.origin, "prompt_processing")
+        self.assertIn(str(output.batch_id), output.batch_file)
+        batch = self._read_output_batch(output)
+        self.assertCountEqual(
+            batch.datasets,
+            [
+                UUID("26c6235f-2ea3-5a15-8009-a3056e49c379"),
+                UUID("07f98c57-9075-5e6c-a710-8aa4bfbe74a3"),
+                UUID("58adc38b-0374-4656-9e7e-24d67792c02d"),
+            ],
+        )
+
+        # Make sure data was ingested into the target Butler.
+        self.assertEqual(
+            self._butler.get("dt1", {"instrument": "Cam1", "detector": 1}, collections="Cam1/run"), 1
+        )
+        self.assertEqual(
+            self._butler.get("dt2", {"instrument": "Cam1", "detector": 1}, collections="Cam1/run"), 2
+        )
+        self.assertEqual(
+            self._butler.get("dt1", {"instrument": "Cam1", "detector": 2}, collections="Cam1/run"), 3
+        )
+
+        with self.assertLogs(level="ERROR") as logs:
+            # Process a message that will trigger a
+            # ConflictingDefinitionError in the Butler, and ensure that we
+            # log the error but do not abort processing.
+            self._kafka_reader.add_messages([self._load_message("conflicting-message.json"), *messages])
+            self._message_processor.process_messages()
+            self.assertFalse(self._kafka_reader.has_pending_messages())
+            self.assertEqual(len(self._kafka_reader.last_output), 1)
+            output = BatchIngestedEvent.model_validate_json(self._kafka_reader.last_output[0])
+            batch = self._read_output_batch(output)
+            self.assertCountEqual(
+                batch.datasets,
+                [
+                    UUID("26c6235f-2ea3-5a15-8009-a3056e49c379"),
+                    UUID("07f98c57-9075-5e6c-a710-8aa4bfbe74a3"),
+                    UUID("58adc38b-0374-4656-9e7e-24d67792c02d"),
+                ],
             )
-
-            messages = [self._load_message(filename) for filename in ["message1.json", "message2.json"]]
-            handle_prompt_processing_completion(butler, messages)
-
-            # Make sure data was ingested into the target Butler.
-            self.assertEqual(
-                butler.get("dt1", {"instrument": "Cam1", "detector": 1}, collections="Cam1/run"), 1
-            )
-            self.assertEqual(
-                butler.get("dt2", {"instrument": "Cam1", "detector": 1}, collections="Cam1/run"), 2
-            )
-            self.assertEqual(
-                butler.get("dt1", {"instrument": "Cam1", "detector": 2}, collections="Cam1/run"), 3
-            )
-
-            with self.assertLogs(level="ERROR") as logs:
-                # Process a message that will trigger a
-                # ConflictingDefinitionError in the Butler, and ensure that we
-                # log the error but do not abort processing.
-                handle_prompt_processing_completion(
-                    butler, [self._load_message("conflicting-message.json"), *messages]
-                )
-            self.assertTrue(any("Encountered unrecoverable error" in msg for msg in logs.output))
+        self.assertTrue(any("Encountered unrecoverable error" in msg for msg in logs.output))
 
     def _get_data_directory(self) -> str:
         test_directory = os.path.abspath(os.path.dirname(__file__))
         return os.path.join(test_directory, "data")
 
-    def _load_message(self, filename: str) -> PromptProcessingOutputEvent:
+    def _load_message(self, filename: str) -> str:
         path = os.path.join(self._get_data_directory(), filename)
         with open(path) as fh:
-            json = fh.read()
-            return PromptProcessingOutputEvent.model_validate_json(json)
+            return fh.read()
+
+    def _read_output_batch(self, message: BatchIngestedEvent) -> DatasetBatch:
+        batch_json = ResourcePath(self._output_dir).join(message.batch_file).read().decode("utf-8")
+        batch = DatasetBatch.model_validate_json(batch_json)
+        self.assertEqual(message.batch_id, batch.batch_id)
+        return batch

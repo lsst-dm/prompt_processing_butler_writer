@@ -23,6 +23,7 @@ import logging
 
 from lsst.daf.butler import (
     Butler,
+    DatasetId,
     DatasetType,
     DimensionRecord,
     DimensionRecordSet,
@@ -36,9 +37,11 @@ from .messages import PromptProcessingOutputEvent
 _LOG = logging.getLogger(__name__)
 
 
-def handle_prompt_processing_completion(butler: Butler, events: list[PromptProcessingOutputEvent]) -> None:
+def handle_prompt_processing_completion(
+    butler: Butler, events: list[PromptProcessingOutputEvent]
+) -> list[DatasetId]:
     try:
-        _insert_data_from_messages(butler, events)
+        return _insert_data_from_messages(butler, events)
     except ConflictingDefinitionError as e:
         # If there is a mismatch between the data we are inserting and the data
         # already in the database, Butler will throw
@@ -56,20 +59,22 @@ def handle_prompt_processing_completion(butler: Butler, events: list[PromptProce
             "Retrying one message at a time to recover.",
             exc_info=e,
         )
+        datasets: list[DatasetId] = []
         for event in events:
             try:
-                _insert_data_from_messages(butler, [event])
+                datasets.extend(_insert_data_from_messages(butler, [event]))
             except ConflictingDefinitionError as single_message_error:
                 _LOG.error(
                     "Unrecoverable error for message:\n%s",
                     event.model_dump_json(indent=2),
                     exc_info=single_message_error,
                 )
+        return datasets
 
 
-def _insert_data_from_messages(butler: Butler, events: list[PromptProcessingOutputEvent]) -> None:
+def _insert_data_from_messages(butler: Butler, events: list[PromptProcessingOutputEvent]) -> list[DatasetId]:
     _insert_dimension_records(butler, events)
-    _insert_datasets(butler, events)
+    return _insert_datasets(butler, events)
 
 
 def _deserialize_dimension_records(
@@ -134,8 +139,8 @@ def _deserialize_datasets(butler: Butler, event: PromptProcessingOutputEvent) ->
     return datasets
 
 
-def _insert_datasets(butler: Butler, events: list[PromptProcessingOutputEvent]) -> None:
-    datasets = []
+def _insert_datasets(butler: Butler, events: list[PromptProcessingOutputEvent]) -> list[DatasetId]:
+    datasets: list[FileDataset] = []
     for event in events:
         deserialized_datasets = _deserialize_datasets(butler, event)
         datasets.extend(deserialized_datasets)
@@ -147,3 +152,8 @@ def _insert_datasets(butler: Butler, events: list[PromptProcessingOutputEvent]) 
         level=logging.DEBUG,
     ):
         butler.ingest(*datasets, transfer=None, skip_existing=True, record_validation_info=False)
+
+    dataset_ids: set[DatasetId] = set()
+    for dataset in datasets:
+        dataset_ids.update((ref.id for ref in dataset.refs))
+    return list(dataset_ids)
