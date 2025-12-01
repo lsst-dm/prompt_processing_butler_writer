@@ -1,5 +1,5 @@
 ARG PIPE_CONTAINER=ghcr.io/lsst/scipipe
-ARG STACK_TAG=al9-d_2025_09_05
+ARG STACK_TAG=al9-w_2025_48
 FROM ${PIPE_CONTAINER}:${STACK_TAG}
 WORKDIR /app
 COPY python python
