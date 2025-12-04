@@ -1,5 +1,15 @@
 # Prompt Processing Butler Writer service releases
 
+## 3.0.0
+
+We now write lists of ingested datasets to S3, and send a Kafka message to
+signal that the new datasets are available in the Butler.  This will be
+consumed by the [DMTN-330](https://dmtn-330.lsst.io/) publication service.
+The environment variables controlling this, `OUTPUT_DATASET_LIST_DIRECTORY` and
+`KAFKA_OUTPUT_TOPIC`, are now required at startup.
+
+The base container has been updated to w_2025_48.
+
 ## 2.2.0
 
 We no longer record file sizes for ingested datasets in the Butler database.

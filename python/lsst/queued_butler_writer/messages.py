@@ -22,6 +22,7 @@
 from __future__ import annotations
 
 from typing import Literal
+from uuid import UUID
 
 import pydantic
 from lsst.daf.butler import (
@@ -32,7 +33,40 @@ from lsst.daf.butler import (
 
 
 class PromptProcessingOutputEvent(pydantic.BaseModel):
+    """Kafka message sent from worker pods to the Butler Writer Service,
+    signaling that new datasets have been generated and are available for
+    ingest.
+    """
+
     type: Literal["pp-output"]
     dimension_records: list[SerializedDimensionRecord]
     dataset_types: list[SerializedDatasetType] = pydantic.Field(default_factory=list)
     datasets: list[SerializedFileDataset]
+
+
+class BatchIngestedEvent(pydantic.BaseModel):
+    """Kafka message sent from Butler Writer Service to Prompt Publication
+    Service, signaling that new datasets have been ingested and can be
+    considered for future un-embargo.
+    """
+
+    type: Literal["batch-ingested"]
+    batch_id: UUID
+    """Identifier for this batch of datasets."""
+    origin: str
+    """The name of the service that these datasets originated from."""
+    batch_file: str
+    """Path to file containing JSON-serialized version of `DatasetBatch`
+    model.
+    """
+
+
+class DatasetBatch(pydantic.BaseModel):
+    """List of datasets contained in JSON file that will be consumed by the
+    Prompt Publication Service.
+    """
+
+    batch_id: UUID
+    """Identifier for this batch of datasets."""
+    datasets: list[UUID]
+    """List of dataset IDs that were ingested into the Butler database."""

@@ -13,7 +13,7 @@ services:
       # We can't use the default configuration, because we want to be able to reach the container
       # from outside the Docker network.
       #
-      # From inside the Docker network, this node is known as "kafka-broker",
+      # From inside the Docker network, this node is known as "broker",
       # but when connecting from the local machine outside of Docker it is
       # "localhost".
       # See https://rmoff.net/2018/08/02/kafka-listeners-explained/
@@ -42,4 +42,19 @@ services:
     depends_on:
       - broker
     image: apache/kafka:3.7.2
-    command: /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:19092 --create --topic rubin-prompt-processing-butler-output
+    command: >
+      /bin/sh -c "
+      /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:19092 --create --topic writer-input
+      && /opt/kafka/bin/kafka-topics.sh --bootstrap-server broker:19092 --create --topic writer-output
+      "
+
+  # Start up a web UI for Kafka, which can be viewed via HTTP port 9000.
+  kafdrop:
+    image: obsidiandynamics/kafdrop
+    restart: "no"
+    ports:
+      - "9000:9000"
+    environment:
+      KAFKA_BROKERCONNECT: "broker:19092"
+    depends_on:
+      - "broker"

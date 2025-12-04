@@ -39,12 +39,14 @@ scons
 
 # Start up the service.  Note that it has to be sourced, rather than invoked,
 # so that the LSST stack environment variables carry over.
-. ./run_service.sh
+. ./run_service.sh &
 
 # See python insert_test_messages.py --help for flags that control
 # which Butler data is inserted.
 python insert_test_messages.py
 ```
+
+This also starts up an instance of [kafdrop](https://kafdrop.com) on [localhost:9000](http://localhost:9000), which allows you to inspect the messages in Kafka.
 
 ## Build and Deploy
 
