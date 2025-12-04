@@ -112,7 +112,9 @@ class KafkaConnection:
         try:
             self._producer.begin_transaction()
             output_batch = [{"value": msg} for msg in output_messages]
-            self._producer.produce_batch(self._output_topic, output_batch)
+            messages_produced = self._producer.produce_batch(self._output_topic, output_batch)
+            if len(output_batch) != messages_produced:
+                raise RuntimeError("Kafka produce failed.")
             self._producer.send_offsets_to_transaction(
                 self._consumer.position(self._consumer.assignment()), self._consumer.consumer_group_metadata()
             )
