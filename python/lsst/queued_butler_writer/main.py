@@ -100,6 +100,7 @@ class MessageProcessor:
     )
     def process_messages(self) -> None:
         self._reader.read_and_write_messages(self._handle_messages)
+        _LOG.info("Committed output to Kafka.")
 
     def _handle_messages(self, messages: list[str]) -> list[str]:
         events = [PromptProcessingOutputEvent.model_validate_json(msg) for msg in messages]

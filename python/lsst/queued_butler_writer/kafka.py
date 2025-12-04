@@ -118,7 +118,7 @@ class KafkaConnection:
         while True:
             messages = self._consumer.consume(self._BATCH_SIZE, self._TIMEOUT_SECONDS)
             if not messages:
-                _LOG.debug(f"Still waiting for Kafka message after {self._TIMEOUT_SECONDS} seconds")
+                _LOG.info(f"Still waiting for Kafka message after {self._TIMEOUT_SECONDS} seconds")
             else:
                 valid_messages = []
                 errors = []
