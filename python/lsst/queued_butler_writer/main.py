@@ -24,6 +24,7 @@ from __future__ import annotations
 import datetime
 import logging
 import os
+from typing import Literal
 from uuid import uuid4
 
 import backoff
@@ -52,6 +53,8 @@ class ServiceConfig(pydantic.BaseModel):
     """
     KAFKA_USERNAME: str | None = None
     KAFKA_PASSWORD: str | None = None
+    KAFKA_DEBUG: Literal["0", "1"] = "0"
+    """If '1', enable additional kafka debug logging."""
     OUTPUT_DATASET_LIST_DIRECTORY: str
     """
     Directory URI (in `lsst.resources.ResourcePath` format) where lists of
@@ -78,6 +81,7 @@ def main():
         output_topic=config.KAFKA_OUTPUT_TOPIC,
         username=config.KAFKA_USERNAME,
         password=config.KAFKA_PASSWORD,
+        debug=config.KAFKA_DEBUG == "1",
     )
 
     processor = MessageProcessor(config, butler, reader)

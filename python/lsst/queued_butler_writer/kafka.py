@@ -38,7 +38,13 @@ class KafkaConnection:
     _TIMEOUT_SECONDS = 30
 
     def __init__(
-        self, cluster: str, input_topic: str, output_topic: str, username: str | None, password: str | None
+        self,
+        cluster: str,
+        input_topic: str,
+        output_topic: str,
+        username: str | None,
+        password: str | None,
+        debug: bool = False,
     ) -> None:
         common_config = {
             "bootstrap.servers": cluster,
@@ -63,6 +69,8 @@ class KafkaConnection:
         self._pending_messages: list[Message] = []
 
         producer_config = common_config | {"transactional.id": "butler-writer-output"}
+        if debug:
+            producer_config["debug"] = "all"
         self._output_topic = output_topic
         self._producer = Producer(producer_config)
         self._producer.init_transactions()
