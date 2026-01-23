@@ -1,5 +1,10 @@
 # Prompt Processing Butler Writer service releases
 
+## Pending
+
+The base container has been updated to w_2026_04. This enables support for
+ProvenanceQuantumGraph datasets.
+
 ## 3.0.0
 
 We now write lists of ingested datasets to S3, and send a Kafka message to
