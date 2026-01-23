@@ -1,6 +1,6 @@
 # Prompt Processing Butler Writer service releases
 
-## Pending
+## 3.1.0
 
 The base container has been updated to w_2026_04. This enables support for
 ProvenanceQuantumGraph datasets.
