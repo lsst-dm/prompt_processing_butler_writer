@@ -21,7 +21,7 @@
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 import pydantic
@@ -42,6 +42,28 @@ class PromptProcessingOutputEvent(pydantic.BaseModel):
     dimension_records: list[SerializedDimensionRecord]
     dataset_types: list[SerializedDatasetType] = pydantic.Field(default_factory=list)
     datasets: list[SerializedFileDataset]
+
+
+class PromptProcessingDayEndEvent(pydantic.BaseModel):
+    """Kafka message sent from prompt processing to the Butler Writer Service,
+    signaling that no more outputs will be produced for the given
+    instrument/day_obs. This is forwarded unchanged to the output topic;
+    the Butler Writer Service takes no other action on it.
+    """
+
+    type: Literal["day-end"]
+    instrument: str
+    day_obs: int
+    surveys: list[str]
+    version: str
+
+
+InputEvent = Annotated[
+    PromptProcessingOutputEvent | PromptProcessingDayEndEvent, pydantic.Field(discriminator="type")
+]
+"""Union of message types that can be received on the input topic."""
+
+input_event_adapter: pydantic.TypeAdapter[InputEvent] = pydantic.TypeAdapter(InputEvent)
 
 
 class BatchIngestedEvent(pydantic.BaseModel):

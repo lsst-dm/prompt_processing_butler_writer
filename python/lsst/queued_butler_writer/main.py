@@ -34,7 +34,13 @@ from lsst.resources import ResourcePath
 
 from .butler import handle_prompt_processing_completion
 from .kafka import KafkaConnection
-from .messages import PromptProcessingOutputEvent, DatasetBatch, BatchIngestedEvent
+from .messages import (
+    BatchIngestedEvent,
+    DatasetBatch,
+    PromptProcessingDayEndEvent,
+    PromptProcessingOutputEvent,
+    input_event_adapter,
+)
 
 
 class ServiceConfig(pydantic.BaseModel):
@@ -107,15 +113,40 @@ class MessageProcessor:
         _LOG.info("Committed output to Kafka.")
 
     def _handle_messages(self, messages: list[str]) -> list[str]:
-        events = [PromptProcessingOutputEvent.model_validate_json(msg) for msg in messages]
-        _LOG.info(f"Received {len(events)} messages")
-        dataset_ids = handle_prompt_processing_completion(self._butler, events)
-        _LOG.info(f"Ingested {len(events)} messages into the Butler")
-        output = self._write_output_message(dataset_ids)
-        _LOG.info(f"Wrote dataset list to '{output.batch_file}'")
-        _LOG.info(f"Successfully processed {len(events)} messages")
-        # Send BatchIngestedEvent message to Kafka.
-        return [output.model_dump_json()]
+        output_events: list[PromptProcessingOutputEvent] = []
+        dayend_events: list[PromptProcessingDayEndEvent] = []
+        discarded = 0
+        for msg in messages:
+            try:
+                event = input_event_adapter.validate_json(msg)
+            except pydantic.ValidationError as e:
+                _LOG.error("Discarding unparseable message:\n%s", msg, exc_info=e)
+                discarded += 1
+                continue
+            if isinstance(event, PromptProcessingOutputEvent):
+                output_events.append(event)
+            else:
+                dayend_events.append(event)
+        _LOG.info(
+            f"Received {len(output_events)} output messages, "
+            f"{len(dayend_events)} day-end messages, "
+            f"and discarded {discarded} unparseable messages"
+        )
+
+        output_messages: list[str] = []
+        if output_events:
+            dataset_ids = handle_prompt_processing_completion(self._butler, output_events)
+            _LOG.info(f"Ingested {len(output_events)} messages into the Butler")
+            output = self._write_output_message(dataset_ids)
+            _LOG.info(f"Wrote dataset list to '{output.batch_file}'")
+            output_messages.append(output.model_dump_json())
+
+        for event in dayend_events:
+            _LOG.info(f"Forwarding day-end signal for {event.instrument} day_obs {event.day_obs}")
+            output_messages.append(event.model_dump_json())
+
+        _LOG.info(f"Successfully processed {len(output_events) + len(dayend_events)} messages")
+        return output_messages
 
     def _write_output_message(self, datasets: list[DatasetId]) -> BatchIngestedEvent:
         current_time = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H-%M-%S-%f")
