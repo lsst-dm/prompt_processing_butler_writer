@@ -4,7 +4,7 @@ import click
 from confluent_kafka import Producer
 from lsst.daf.butler import Butler, ButlerConfig, DatasetRef, DimensionRecord
 from lsst.daf.butler._rubin.file_datasets import transfer_datasets_to_datastore
-from lsst.queued_butler_writer.messages import PromptProcessingOutputEvent
+from lsst.queued_butler_writer.messages import PromptProcessingOutputEvent, PromptProcessingDayEndEvent
 
 
 @click.command()
@@ -34,8 +34,17 @@ def main(input_repo: str, broker: str, where: str, collection: str, topic: str, 
     )
 
     producer.produce(topic, message.model_dump_json())
-    producer.flush()
     print(f"{len(message.dimension_records)=} {len(message.datasets)=} {len(message.dataset_types)=}")
+
+    message = PromptProcessingDayEndEvent(
+        type="day-end",
+        instrument="HSC",
+        day_obs=20250102,
+        surveys=["BLOCK-01", "BLOCK-02"],
+        version="g98765",
+    )
+    producer.produce(topic, message.model_dump_json())
+    producer.flush()
 
 
 def _find_dimension_records(butler: Butler, where: str) -> list[DimensionRecord]:

@@ -1,0 +1,7 @@
+{
+    "type": "day-end",
+    "instrument": "LSSTCam",
+    "day_obs": 20240924,
+    "surveys": ["SURVEY"],
+    "version": "g12345"
+}
