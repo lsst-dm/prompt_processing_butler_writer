@@ -1,5 +1,10 @@
 # Prompt Processing Butler Writer service releases
 
+## 3.2.0
+
+The base container has been updated to w_2026_41. This enables support for
+lsst.images formatters.
+
 ## 3.1.0
 
 The base container has been updated to w_2026_04. This enables support for
